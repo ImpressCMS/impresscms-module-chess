@@ -1,0 +1,345 @@
+http://dev.xoops.org/modules/newbb/viewtopic.php?topic_id=896
+http://dev.mysql.com/doc/mysql/en/multiple-column-indexes.html
+http://dev.mysql.com/doc/mysql/en/mysql-indexes.html
+
+$ grep -rin "xoopsDB..query" * >docs/queries.log
+
+admin/index.php:114:	$result = $xoopsDB->query("SELECT COUNT(*) FROM $games_table WHERE suspended != ''");
+TABLE: chess_games
+KEYS: suspended
+
+admin/index.php:122:
+	$result = $xoopsDB->query(trim("
+		SELECT   game_id, white_uid, black_uid, UNIX_TIMESTAMP(start_date) AS start_date, suspended
+		FROM     $games_table
+		WHERE    suspended != ''
+		ORDER BY suspended
+		LIMIT    $start, $max_items_to_display
+	"));
+TABLE: chess_games
+KEYS: suspended
+
+admin/index.php:202:	$result = $xoopsDB->query("SELECT COUNT(*) FROM $games_table WHERE pgn_result = '*' and suspended = ''");
+TABLE: chess_games
+KEYS: pgn_result+suspended ?
+
+admin/index.php:206:
+	$result = $xoopsDB->query(trim("
+		SELECT   game_id, white_uid, black_uid, UNIX_TIMESTAMP(start_date) AS start_date, GREATEST(create_date,start_date,last_date) AS most_recent_date
+		FROM     $games_table
+		WHERE    pgn_result = '*' and suspended = ''
+		ORDER BY most_recent_date DESC
+		LIMIT    $start, $max_items_to_display
+	"));
+TABLE: chess_games
+KEYS: pgn_result+suspended, create_date+start_date+last_date
+
+admin/index.php:264:	$result = $xoopsDB->query("SELECT COUNT(*) FROM $challenges_table");
+
+admin/index.php:268:
+	$result = $xoopsDB->query(trim("
+		SELECT   challenge_id, game_type, color_option, player1_uid, player2_uid, UNIX_TIMESTAMP(create_date) AS create_date
+		FROM     $challenges_table
+		ORDER BY create_date DESC
+		LIMIT    $start, $max_items_to_display
+	"));
+TABLE: chess_challenges
+KEYS: create_date
+
+blocks/blocks.php:74:
+	$where = 'white_uid != black_uid';
+	switch($options[1]) {
+		case 1:
+			$where .= " AND pgn_result = '*'";
+			break;
+		case 2:
+			$where .= " AND pgn_result != '*'";
+			break;
+	}
+	if ($options[2] == 1) {
+		$where .= " AND is_rated = '1'";
+	}
+	$result = $xoopsDB->query(trim("
+		SELECT   game_id, fen_active_color, white_uid, black_uid, pgn_result, UNIX_TIMESTAMP(create_date) AS create_date,
+		         UNIX_TIMESTAMP(start_date) AS start_date, UNIX_TIMESTAMP(last_date) AS last_date,
+		         UNIX_TIMESTAMP(GREATEST(create_date,start_date,last_date)) AS most_recent_date
+		FROM     $table
+		WHERE    $where
+		ORDER BY most_recent_date DESC
+		LIMIT    $limit
+	"));
+TABLE: chess_games
+KEYS: white_uid+black_uid+pgn_result+is_rated, create_date+start_date+last_date
+
+blocks/blocks.php:160:
+	switch($options[1]) {
+		case 1:
+			$where = "game_type = 'open'";
+			break;
+		case 2:
+			$where = "game_type = 'user'";
+			break;
+		default:
+			$where = 1;
+			break;
+	}
+	$result = $xoopsDB->query(trim("
+		SELECT   challenge_id, game_type, player1_uid, player2_uid, UNIX_TIMESTAMP(create_date) AS create_date
+		FROM     $table
+		WHERE    $where
+		ORDER BY create_date DESC
+		LIMIT    $limit
+	"));
+TABLE: chess_challenges
+KEYS: game_type, create_date
+
+blocks/blocks.php:257:
+	switch($options[1]) {
+		case 1:
+			$block['show_provisional_ratings'] = false;
+			$where = "(games_won+games_lost+games_drawn) >= '{$block['provisional_games']}'";
+			break;
+		case 2:
+		default:
+			$block['show_provisional_ratings'] = true;
+			$where = 1;
+			break;
+	}
+	$result = $xoopsDB->query(trim("
+		SELECT   player_uid, rating, (games_won+games_lost+games_drawn) AS games_played
+		FROM     $table
+		WHERE    $where
+		ORDER BY rating DESC, player_uid ASC
+		LIMIT    $limit
+	"));
+TABLE: chess_ratings
+KEYS: games_won+games_lost+games_drawn, rating, player_uid
+
+create.php:414:
+	 $result = $xoopsDB->query(trim("
+		SELECT game_type, fen, color_option, player1_uid, player2_uid, UNIX_TIMESTAMP(create_date) as create_date, is_rated
+		FROM   $challenges_table
+		WHERE  challenge_id = '$challenge_id'
+	"));
+TABLE: chess_challenges
+KEYS: challenge_id (primary)
+
+create.php:522:
+	 $result = $xoopsDB->query(trim("
+		SELECT game_type, fen, color_option, player1_uid, player2_uid, UNIX_TIMESTAMP(create_date) as create_date, is_rated
+		FROM   $challenges_table
+		WHERE  challenge_id = '$challenge_id'
+	"));
+TABLE: challenges
+KEYS: challenge_id (primary)
+
+create.php:627:
+	$result = $xoopsDB->query(trim("
+		SELECT game_type, fen, color_option, notify_move_player1, player1_uid, player2_uid, UNIX_TIMESTAMP(create_date) as create_date, is_rated
+		FROM   $challenges_table
+		WHERE  challenge_id = '$challenge_id'
+	"));
+TABLE: chess_challenges
+KEYS: challenge_id (primary)
+
+create.php:702:	$xoopsDB->query("DELETE FROM $challenges_table WHERE challenge_id = '$challenge_id'");
+TABLE: challenges
+KEYS: challenge_id (primary)
+
+create.php:728:	$result = $xoopsDB->query("SELECT player1_uid FROM $challenges_table WHERE challenge_id = '$challenge_id'");
+TABLE: chess_challenges
+KEYS: challenge_id (primary)
+
+create.php:819:	$xoopsDB->query("DELETE FROM $table WHERE challenge_id='$challenge_id'");
+TABLE: chess_challenges
+KEYS: challenge_id (primary)
+
+docs/INSTALL.TXT:35:First perform the following query to ensure that the column xoops_chess_games.pgn_result doesn't contain any illegal values.  If the query returns any rows, correct them, then re-run the query.
+SELECT * FROM xoops_chess_games WHERE pgn_result NOT IN ('*','1-0','0-1','1/2-1/2')
+TABLE: chess_games
+KEYS: pgn_result
+
+game.php:397:	$result      = $xoopsDB->query("SELECT * FROM $games_table WHERE game_id = '$game_id'");
+game.php:421:
+	$xoopsDB->query(trim("
+		UPDATE $table
+		SET
+			...
+		WHERE  game_id = '$game_id'
+	"));
+TABLE: chess_games
+KEYS: game_id (primary)
+
+game.php:463:	$xoopsDB->query("DELETE FROM $table WHERE game_id='$game_id'");
+TABLE: chess_games
+KEYS: game_id (primary)
+
+include/notification.inc.php:70:
+		$result = $xoopsDB->query(trim("
+			SELECT white_uid, black_uid, UNIX_TIMESTAMP(start_date) AS start_date
+			FROM   $table
+			WHERE  game_id = '$item_id'
+		"));
+TABLE: chess_games
+KEYS: game_id (primary)
+
+include/ratings.inc.php:54:
+	$result = $xoopsDB->query("
+		SELECT
+			g.white_uid AS white_uid, g.black_uid AS black_uid, g.pgn_result AS pgn_result, w.rating AS white_rating, b.rating AS black_rating,
+			(w.games_won+w.games_lost+w.games_drawn) AS white_games, (b.games_won+b.games_lost+b.games_drawn) AS black_games
+		FROM      $games_table AS g
+		LEFT JOIN $ratings_table AS w ON w.player_uid = g.white_uid
+		LEFT JOIN $ratings_table AS b ON b.player_uid = g.black_uid
+		WHERE     g.game_id = '$gid' AND g.is_rated = '1' AND g.pgn_result != '*'
+			AND (w.player_uid IS NULL OR b.player_uid IS NULL OR w.player_uid != b.player_uid)
+	");
+TABLE: chess_games
+KEYS: game_id (primary), is_rated, pgn_result
+TABLE: chess_ratings
+KEYS: player_uid (primary)
+
+include/ratings.inc.php:99:
+	$xoopsDB->query("
+		UPDATE $ratings_table
+		SET    rating = '$white_rating_new', $white_col = $white_col + 1
+		WHERE  player_uid = '{$row['white_uid']}'
+	");
+TABLE: chess_ratings
+KEYS: player_uid (primary)
+
+include/ratings.inc.php:106:
+	$xoopsDB->query("
+		UPDATE $ratings_table
+		SET    rating = '$black_rating_new', $black_col = $black_col + 1
+		WHERE  player_uid = '{$row['black_uid']}'
+	");
+TABLE: chess_ratings
+KEYS: player_uid (primary)
+
+include/ratings.inc.php:142:
+	$result = $xoopsDB->query("
+		SELECT    white_uid, black_uid, pgn_result
+		FROM      $games_table
+		WHERE     is_rated = '1' AND pgn_result != '*' AND white_uid != black_uid
+		ORDER BY  last_date ASC
+	");
+TABLE: chess_games
+KEYS: is_rated+pgn_result+white_uid+black_uid, last_date
+
+index.php:117:
+	$where = 'white_uid != black_uid';
+	switch($gshow1) {
+		case 1:
+			$where .= " AND pgn_result = '*'";
+			break;
+		case 2:
+			$where .= " AND pgn_result != '*'";
+			break;
+	}
+	if ($gshow2 == 1) {
+		$where .= " AND is_rated = '1'";
+	}
+	$result = $xoopsDB->query("SELECT COUNT(*) FROM $games_table WHERE $where");
+TABLE: chess_games
+KEYS: white_uid+black_uid+pgn_result+is_rated
+
+index.php:121:
+	$result = $xoopsDB->query(trim("
+		SELECT   game_id, fen_active_color, white_uid, black_uid, pgn_result, is_rated,
+			UNIX_TIMESTAMP(GREATEST(create_date,start_date,last_date)) AS last_activity
+		FROM     $games_table
+		WHERE    $where
+		ORDER BY last_activity DESC
+		LIMIT    $gstart, $max_items_to_display
+	"));
+TABLE: chess_games
+KEYS: white_uid+black_uid+pgn_result+is_rated, create_date+start_date+last_date
+
+index.php:180:
+	switch($cshow) {
+		case _CHESS_SHOW_CHALLENGES_OPEN:
+			$where = "game_type = 'open'";
+			break;
+		case _CHESS_SHOW_CHALLENGES_USER:
+			$where = "game_type = 'user'";
+			break;
+		default:
+			$where = 1;
+			break;
+	}
+	$result = $xoopsDB->query("SELECT COUNT(*) FROM $challenges_table WHERE $where");
+index.php:184:
+	$result = $xoopsDB->query(trim("
+		SELECT   challenge_id, game_type, color_option, player1_uid, player2_uid, UNIX_TIMESTAMP(create_date) AS create_date, is_rated
+		FROM     $challenges_table
+		WHERE    $where
+		ORDER BY create_date DESC
+		LIMIT    $cstart, $max_items_to_display
+	"));
+TABLE: chess_challenges
+KEYS: game_type, create_date
+
+player_stats.php:151:
+	$where = "'$player_uid' IN (white_uid, black_uid)";
+	if ($show_option == _CHESS_SHOW_EXCEPT_SELFPLAY) {
+		$where .= ' AND white_uid != black_uid';
+	} elseif ($show_option == _CHESS_SHOW_RATED_ONLY) {
+		$where .= ' AND is_rated = "1" AND white_uid != black_uid';
+	}
+	$result = $xoopsDB->query("SELECT COUNT(*) FROM $games_table WHERE $where");
+player_stats.php:155:
+	$result = $xoopsDB->query("
+		SELECT   game_id, fen_active_color, white_uid, black_uid, pgn_result, is_rated,
+			UNIX_TIMESTAMP(GREATEST(create_date,start_date,last_date)) AS last_activity
+		FROM      $games_table
+		WHERE     $where
+		ORDER BY  last_activity DESC
+		LIMIT     $gstart, $max_items_to_display
+	");
+TABLE: chess_games
+KEYS: white_uid, black_uid, is_rated, create_date+start_date+last_date
+
+player_stats.php:205:
+	$where = "'$player_uid' IN (player1_uid, player2_uid)";
+	if ($show_option == _CHESS_SHOW_RATED_ONLY) {
+		$where .= ' AND is_rated = "1"';
+	}
+	$result = $xoopsDB->query("SELECT COUNT(*) FROM $challenges_table WHERE $where");
+player_stats.php:209:
+	$result = $xoopsDB->query("
+		SELECT   challenge_id, game_type, color_option, player1_uid, player2_uid, UNIX_TIMESTAMP(create_date) AS create_date, is_rated
+		FROM     $challenges_table
+		WHERE    $where
+		ORDER BY create_date DESC
+		LIMIT    $cstart, $max_items_to_display
+	");
+TABLE: chess_challenges
+KEYS: player1_uid, player2_uid, is_rated, create_date
+
+player_stats.php:272:
+		$result = $xoopsDB->query("
+			SELECT   player_uid, rating, games_won, games_lost, games_drawn, (games_won+games_lost+games_drawn) AS games_played
+			FROM     $ratings_table
+			ORDER BY rating DESC, player_uid ASC
+		");
+TABLE: chess_ratings
+KEYS: rating, player_uid
+
+ratings.php:111:
+	$result = $xoopsDB->query("
+		SELECT    COUNT(*)
+		FROM      $ratings_table
+	");
+TABLE: chess_ratings
+KEYS: n/a
+
+ratings.php:120:
+	$result = $xoopsDB->query("
+		SELECT    player_uid, rating, (games_won+games_lost+games_drawn) AS games_played
+		FROM      $ratings_table
+		ORDER BY  rating DESC, player_uid ASC
+		LIMIT     $start, $max_items_to_display
+	");
+TABLE: chess_ratings
+KEYS: player_uid (primary), rating
